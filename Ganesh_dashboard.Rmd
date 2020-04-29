@@ -1,18 +1,13 @@
 ---
 title: "Big Mart Sales"
+Author: "Ganesh Prabhakaran"
 output:
   flexdashboard::flex_dashboard:
     theme: cerulean
     orientation: rows
     source_code: embed
-    vertical_layout: fill
-  pdf_document: default
-  html_document:
-    df_print: paged
-  word_document: default
+    vertical_layout: scroll
 ---
-
-
 
 
 ```{r setup, include=FALSE}
@@ -24,11 +19,6 @@ library(tidyr)
 library(tidyverse)
 library(forcats)
 library(highcharter)
-library(gapminder)
-library(gganimate)
-library(shinyWidgets)
-library(shinyjs)
-library(shiny)
 library(tidyverse)
 library(tidyquant)
 library(ggthemes)
@@ -37,7 +27,7 @@ library(crosstalk)
 library(DT)
 
 
-bigmart_sales = read.csv("G:/train.csv")
+bigmart_sales = read.csv("./Train.csv")
 bigmart_sales %>% map_if(is.factor, as.character) %>% as_tibble -> bigmart_sales
 bigmart_sales <- bigmart_sales %>% mutate(Item_Fat_Content = replace(Item_Fat_Content,Item_Fat_Content == "LF","Low Fat"))
 bigmart_sales <- bigmart_sales %>% mutate(Item_Fat_Content = replace(Item_Fat_Content,Item_Fat_Content == "low fat","Low Fat"))
@@ -63,23 +53,18 @@ processed_data_tbl <- bigmart_sales %>%
 processed_data_tbl
 ```
 
-
-
-
-
 Outline
-============================================================================
-
-
+=============================================================================
 
 Column {data-orientation = columns}
 --------------------------------------------------------
+
 
 ```{r}
 str(bigmart_sales)
 ```
 
-### No of observations 
+### No of observations
 ```{r}
 
 valueBox(length(bigmart_sales$Item_Identifier),
@@ -89,7 +74,7 @@ valueBox(length(bigmart_sales$Item_Identifier),
 ```
 
 
-Column {data-width=350}
+Column {data-width=400}
 -----------------------------------------------------------------------
 ### Average sales in all Outlets
 
@@ -111,14 +96,14 @@ valueBox(length(uniq_outlets),
          color = "teal")
 ```
 
-Column {data-width=500}
+Row {data-width=300}
 -----------------------------------------------------------------------
 ### Top selling items
 ```{r  include=FALSE}
 #This Pie Chart shows the top selling items in Big mart. Here the most buyed products are Fruits and vegetables, Snacks Foods, House Hold and Frozen Foods.With the help of this chart we can find people's choice of buying products and target investment on that particular products.
 ```
 
-```{r}
+```{r fig.width=9}
 datanew <- as.data.frame(table(bigmart_sales$Item_Type))
 plot_ly(datanew,type='pie', labels=datanew$Var1, values=datanew$Freq, 
                textinfo='label+percent')
@@ -188,7 +173,8 @@ Scatter Plot
 #This Scatterplot shows the Available products based on Visibility Vs MRP. Hers most of the products and its visibility are clearly shows the highest demanded products. Sometimes the product sales can decreased due to the lack of customer attraction .At this criteria breakfast items, Seafood, Others are least visible products which shows the lowest sales on that particular items. 
 ```
 
-```{r}
+
+```{r fig.height=10}
 scatterpolt <- ggplot(bigmart_sales,aes(x=Item_Visibility,y=Item_MRP)) + 
   geom_point(aes(color=Item_Type)) + 
   theme_bw()+facet_wrap(~Item_Type) + 
@@ -201,7 +187,7 @@ ggplotly(scatterpolt)
 
 
 
-Sales based on Outlet Type
+Outlet Type Sales
 ===================================================================
 ```{r include=FALSE}
 #This Bar plot represents the Sales based on Outlet Location type. Here the Outlet Location type is plotted in X-axis and the Sales count is plotted in Y-axis.With this graph it clearly shows that Tier 3 with combination of equal Supermarket Outlet types has the highest sales count compared with other Location Type. However the Tier 2 location type which is Supermarket Type1 with second highest sales count.
@@ -211,7 +197,7 @@ Column {data-width=500}
 -----------------------------------------------------------------------
 ### Sales based on Outlet Type
 
-```{r}
+```{r fig.height=10}
 
 
 Sales_outlet <- bigmart_sales %>% 
@@ -230,8 +216,11 @@ ggplotly(Sales_outlet)
 
 Highcharter Heatmap
 =======================================================================
+```{r include=FALSE}
+#This Heatmap produces the differencesin MRP prices based on each Outlets. With the Graph plotted Outlet Identifier as X-axis and Item type as Y-axis.In each series it shows the MRP for all Items available in Outlets which differences in each outlets can be clearly seen in the plotted graph.
+```
 
-```{r}
+```{r fig.height=10}
 bigmart_sales %>%
   group_by(Outlet_Identifier) %>%
 hchart(type = "heatmap",
@@ -240,10 +229,13 @@ hchart(type = "heatmap",
 ```
 
 
-Plotly 
+Interactive Plot 
 ========================================================================
+```{r include=FALSE}
+#This Interactive graph designed based on the customer choice of items and fat content .Based on the inputs selected the graph will produce the items availabilty and its MRP differences in each of the Outlets.This will potentially help customers to select and check the products availability and its pricing comparison.Here the Bar Graph plottted with Outelt identitifer as X-axis and Item MRP as Y-axis. It clearly shows the comparion of MRP prices on each Outlets.
+```
 
-Column { data-width=250}
+Column {data-width=1000}
 -----------------------------------------------------------------------
 ### Filters {.no-title .colored }
 **Pick filters here:**
@@ -256,6 +248,7 @@ shared_data <- SharedData$new(tabb, group = 'hello')
 filter_select("qdwd", "Item Identifier", shared_data, ~Item_Identifier, allLevels = TRUE, multiple = TRUE)
 filter_select("qdwd", "Item Fat Content", shared_data, ~Item_Fat_Content, allLevels = TRUE, multiple = TRUE)
 ```
+***
 
 **Data table**
 ```{r}
@@ -272,23 +265,34 @@ datatable(shared_data,
                        dom = 't'))
 ```
 
-Column {data-width=750}
+Column {data-width=1000}
 -----------------------------------------------------------------------
-
-
-```{r}
+```{r fig.width=13.5}
 
 
 fig <- plot_ly(shared_data, x = ~Outlet_Identifier, y = ~Item_MRP,
-               marker = list(size = 10,
+               marker = list(size = 100,
                              color = 'rgba(255, 182, 193, .9)',
                              line = list(color = 'rgba(152, 0, 0, .8)',
                                          width = 2)))
-fig <- fig %>% layout(title = 'Styled Scatter',
+fig <- fig %>% layout(title = 'Difference in MRP for each Outlets',
          yaxis = list(zeroline = FALSE),
          xaxis = list(zeroline = FALSE))
 
 fig
 ```
 
+About {data-icon="fa-info-circle"}
+=======================================================================
+**About Big Mart**
 
+Big Mart is one of the leading retail store. Big Mart Company has begun its journey with the free home delivery of packaged food services. Big Mart makes you step away from the drudgery of food shopping and embrace a convenient way to search and shop at grocery stores. Explore new products and shops for all your fresh food demands from the comfort of your own home or office.No more being caught in road circles, charging for parking, waiting in long lines and pulling big bags – get anything you need right at your doorstep when you need it. Big Mart is dedicated to supplying its consumers with an unparalleled shopping experience across a variety of good quality items.We deliver a broad variety of everyday use goods such as groceries, fast food pieces, soft drinks, toiletries, newspapers, notebooks, bakery, dairy and news papers under one platform to make your shopping trip a delight.Big Mart Retail is one of the fastest expanding express online grocery food and grocery business worldwide, which has been founded in India in 2016. Big Mart is a leader in central India in taking this innovative idea to Indian customers.
+
+<br>
+**Dataset and findings**
+
+BigMart obtained revenue data for 1559 items in 2013 from 10 outlets in various locations. Any characteristics of each commodity and store have also been established. The goal is to create dashboards focused on the order of the consumer and to find out about the sales of each commodity in a specific shop.Through this platform, BigMart can seek to explain the characteristics of goods and stores that play a vital role in that revenues.
+
+<br>
+
+**Analysis explained for each graph .It can viewed through Source code**
