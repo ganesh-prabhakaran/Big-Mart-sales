@@ -1,0 +1,294 @@
+---
+title: "Big Mart Sales"
+output:
+  flexdashboard::flex_dashboard:
+    theme: cerulean
+    orientation: rows
+    source_code: embed
+    vertical_layout: fill
+  pdf_document: default
+  html_document:
+    df_print: paged
+  word_document: default
+---
+
+
+
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(dplyr)
+library(ggplot2)
+library(plotly)
+library(tidyr)
+library(tidyverse)
+library(forcats)
+library(highcharter)
+library(gapminder)
+library(gganimate)
+library(shinyWidgets)
+library(shinyjs)
+library(shiny)
+library(tidyverse)
+library(tidyquant)
+library(ggthemes)
+library(purrr)
+library(crosstalk)
+library(DT)
+
+
+bigmart_sales = read.csv("G:/train.csv")
+bigmart_sales %>% map_if(is.factor, as.character) %>% as_tibble -> bigmart_sales
+bigmart_sales <- bigmart_sales %>% mutate(Item_Fat_Content = replace(Item_Fat_Content,Item_Fat_Content == "LF","Low Fat"))
+bigmart_sales <- bigmart_sales %>% mutate(Item_Fat_Content = replace(Item_Fat_Content,Item_Fat_Content == "low fat","Low Fat"))
+bigmart_sales <- bigmart_sales %>% mutate(Item_Fat_Content = replace(Item_Fat_Content,Item_Fat_Content == "reg","Regular"))
+bigmart_sales$Outlet_Size[bigmart_sales$Outlet_Size==''] <- "Small"
+Item_Weightloc_na <-  which(is.na(bigmart_sales$Item_Weight))
+for(i in Item_Weightloc_na){
+  identifier_missingvalue <-  bigmart_sales$Item_Identifier[i]
+  bigmart_sales$Item_Weight[i] <-  mean(bigmart_sales$Item_Weight[bigmart_sales$Item_Identifier==identifier_missingvalue], na.rm=T)
+}
+
+Item_Visibility_zerovalue <- which(bigmart_sales$Item_Visibility==0)
+for(i in Item_Visibility_zerovalue){
+  item_missingvalue <- bigmart_sales$Item_Identifier[i]
+  bigmart_sales$Item_Visibility[i]=mean(bigmart_sales$Item_Visibility[bigmart_sales$Item_Identifier==item_missingvalue],na.rm=T)
+}
+
+
+# Select relevant data
+processed_data_tbl <- bigmart_sales %>% 
+  select(Item_Identifier, Item_Fat_Content, Outlet_Identifier, Outlet_Establishment_Year, Outlet_Location_Type, Outlet_Type,Item_Outlet_Sales,Item.Availability,Item_Type,Outlet_Identifier,Item_MRP)
+
+processed_data_tbl
+```
+
+
+
+
+
+Outline
+============================================================================
+
+
+
+Column {data-orientation = columns}
+--------------------------------------------------------
+
+```{r}
+str(bigmart_sales)
+```
+
+### No of observations 
+```{r}
+
+valueBox(length(bigmart_sales$Item_Identifier),
+        icon = "fa-pencil",
+        href = "#dataset")
+
+```
+
+
+Column {data-width=350}
+-----------------------------------------------------------------------
+### Average sales in all Outlets
+
+```{r}
+avg_sales <- round(mean(bigmart_sales$Item_Outlet_Sales),0)
+
+valueBox(avg_sales,
+         icon = "fas fa-shopping-cart",
+         color = "orange")
+```
+
+### Total number of Outlets
+
+```{r}
+uniq_outlets <- unique(bigmart_sales$Outlet_Identifier)
+
+valueBox(length(uniq_outlets),
+         icon = "fas fa-store",
+         color = "teal")
+```
+
+Column {data-width=500}
+-----------------------------------------------------------------------
+### Top selling items
+```{r  include=FALSE}
+#This Pie Chart shows the top selling items in Big mart. Here the most buyed products are Fruits and vegetables, Snacks Foods, House Hold and Frozen Foods.With the help of this chart we can find people's choice of buying products and target investment on that particular products.
+```
+
+```{r}
+datanew <- as.data.frame(table(bigmart_sales$Item_Type))
+plot_ly(datanew,type='pie', labels=datanew$Var1, values=datanew$Freq, 
+               textinfo='label+percent')
+```
+
+
+
+
+### Overall product sales in all Outlets
+```{r  include=FALSE}
+#This Bar graph displays the overall sales of each products in all outlets. Here Item type is plotted in X-Axis and Item Sales in Plotted in Y-axis.Based on the plot we can see that top highest purchased products are fruits and vegetables,Snacks,Household and Frozen foods. Products like Seafood, Breakfast and other starchy foods are considered as slowest choice buying products.
+```
+
+```{r}
+products_sale <- plot_ly(bigmart_sales,
+                         x = ~Item_Type,
+                         y = ~Item_Outlet_Sales,
+                         text =paste("Item_Type:",bigmart_sales$Item_Type,
+                                     "Item_Outlet_Sales:",bigmart_sales$Item_Outlet_Sales),
+                         type = "bar",
+                         color = I("blue")) %>%
+                         layout(title = "Overall product sales in all Outlets",
+                                xaxis = list(title="Item_Type"),
+                                yaxis = list(title="Item_Outlet_Sales")) 
+products_sale
+```
+
+Dataset
+===================================================================
+
+```{r}
+DT::datatable(bigmart_sales,
+              options = list(
+                  pageLength = 30
+              ))
+```
+
+
+Average Sales in each Outlet
+===================================================================
+```{r  include=FALSE}
+#This Bar chart displays the average sales in each outlet. Here Outlet Identifier is plotted in X-axis and average sales plotted in Y-axis.We can see that highest average sales in OUT027 and second highest average sales is in OUT035.This may be due to the variations in MRP price in each outlets.However the average sales across all outlets is quite normal except two outlets such as OUT010,OUT019. This may be due to less people area or competition amoung other sales mart.
+```
+
+Column {data-width=500}
+-----------------------------------------------------------------------
+
+```{r}
+
+
+bigmart_sales %>%
+  group_by(Outlet_Identifier) %>%
+  summarise(avg_sales = round(mean(Item_Outlet_Sales, na.rm = TRUE),0)) %>%
+  arrange(avg_sales) %>%
+  mutate(Outlet_Identifier = as_factor(Outlet_Identifier)) %>%
+   hchart('column', hcaes(x = 'Outlet_Identifier', y = 'avg_sales', fill = Outlet_Identifier)) %>%
+  hc_title(text = 'Average Sales in each Outlet') %>%
+  hc_colors(c("darkorange", "darkgray")) %>% 
+  hc_xAxis(title = list(text = "Outlet Identifier")) %>% hc_add_theme(hc_theme_chalk())
+
+
+```
+
+Scatter Plot
+=======================================================================
+```{r  include=FALSE}
+#This Scatterplot shows the Available products based on Visibility Vs MRP. Hers most of the products and its visibility are clearly shows the highest demanded products. Sometimes the product sales can decreased due to the lack of customer attraction .At this criteria breakfast items, Seafood, Others are least visible products which shows the lowest sales on that particular items. 
+```
+
+```{r}
+scatterpolt <- ggplot(bigmart_sales,aes(x=Item_Visibility,y=Item_MRP)) + 
+  geom_point(aes(color=Item_Type)) + 
+  theme_bw()+facet_wrap(~Item_Type) + 
+  ggtitle('Item Type Visibility Vs MRP') + 
+  theme_dark()
+
+ggplotly(scatterpolt)
+
+```
+
+
+
+Sales based on Outlet Type
+===================================================================
+```{r include=FALSE}
+#This Bar plot represents the Sales based on Outlet Location type. Here the Outlet Location type is plotted in X-axis and the Sales count is plotted in Y-axis.With this graph it clearly shows that Tier 3 with combination of equal Supermarket Outlet types has the highest sales count compared with other Location Type. However the Tier 2 location type which is Supermarket Type1 with second highest sales count.
+```
+
+Column {data-width=500}
+-----------------------------------------------------------------------
+### Sales based on Outlet Type
+
+```{r}
+
+
+Sales_outlet <- bigmart_sales %>% 
+                group_by(Outlet_Location_Type, Outlet_Type) %>% 
+                summarise_at(vars(Item_Outlet_Sales), funs(Sales_Count = n())) %>% 
+                ggplot(aes(Outlet_Location_Type,Sales_Count,fill=Outlet_Type)) + 
+                geom_bar(stat='identity') + 
+                labs(title = 'Sales based on Outlet Type')
+
+ggplotly(Sales_outlet)
+
+
+```
+
+
+
+Highcharter Heatmap
+=======================================================================
+
+```{r}
+bigmart_sales %>%
+  group_by(Outlet_Identifier) %>%
+hchart(type = "heatmap",
+       hcaes(x = Outlet_Identifier,y = Item_Type, value= Item_MRP, color = Item_Type))
+
+```
+
+
+Plotly 
+========================================================================
+
+Column { data-width=250}
+-----------------------------------------------------------------------
+### Filters {.no-title .colored }
+**Pick filters here:**
+```{r}
+tabb<-bigmart_sales %>% select(Item_Type, Item_Identifier,Item_Fat_Content , Outlet_Identifier,  Item_MRP, Item.Availability)  %>%
+  group_by(Item_Identifier, Outlet_Identifier)
+
+shared_data <- SharedData$new(tabb, group = 'hello')
+
+filter_select("qdwd", "Item Identifier", shared_data, ~Item_Identifier, allLevels = TRUE, multiple = TRUE)
+filter_select("qdwd", "Item Fat Content", shared_data, ~Item_Fat_Content, allLevels = TRUE, multiple = TRUE)
+```
+
+**Data table**
+```{r}
+# Create datatable. 
+datatable(shared_data,
+          rownames = FALSE,
+          colnames = c('Item Type','Item_Identifier','Item_Fat_Content','Outlet_Identifier', 'Item_MRP', 'Item.Availability'),
+          class = 'cell-border stripe',
+          extensions = "Scroller",
+          options=list(deferRender = FALSE, 
+                       scrollY = 200, 
+                       scrollCollapse = TRUE,
+                       scroller = TRUE,
+                       dom = 't'))
+```
+
+Column {data-width=750}
+-----------------------------------------------------------------------
+
+
+```{r}
+
+
+fig <- plot_ly(shared_data, x = ~Outlet_Identifier, y = ~Item_MRP,
+               marker = list(size = 10,
+                             color = 'rgba(255, 182, 193, .9)',
+                             line = list(color = 'rgba(152, 0, 0, .8)',
+                                         width = 2)))
+fig <- fig %>% layout(title = 'Styled Scatter',
+         yaxis = list(zeroline = FALSE),
+         xaxis = list(zeroline = FALSE))
+
+fig
+```
+
+
